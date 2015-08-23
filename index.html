@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Project by werderhg</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Project</h1>
+      <h2 class="project-tagline">August Homework</h2>
+      <a href="https://github.com/werderhg/Project" class="btn">View on GitHub</a>
+      <a href="https://github.com/werderhg/Project/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/werderhg/Project/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <hr>
+
+<p>title: "Project Machine Learning Coursera Hopekins"
+author: "Harry Werder"
+date: "Thursday, July 09, 2015"</p>
+
+<h2>
+<a id="output-html_document" class="anchor" href="#output-html_document" aria-hidden="true"><span class="octicon octicon-link"></span></a>output: html_document</h2>
+
+<h3>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h3>
+
+<p>We will build a model to predict the outcome "classe" with the levels A,B,C,D,E based on covariants (predictors) from the Human Activity Recognition data.
+The data for this project comes from this source: <a href="http://groupware.les.inf.puc-rio.br/har">http://groupware.les.inf.puc-rio.br/har</a>. </p>
+
+<h3>
+<a id="1-step-set-up-of-environment-in-r" class="anchor" href="#1-step-set-up-of-environment-in-r" aria-hidden="true"><span class="octicon octicon-link"></span></a>1. Step: Set-up of environment in R</h3>
+
+<div class="highlight highlight-r"><pre>setwd(<span class="pl-s"><span class="pl-pds">"</span>H:/Eigene Dateien/A-Coursera/Stat Kurs/8-Machine Learning/Project<span class="pl-pds">"</span></span>) <span class="pl-c">#working directory</span>
+rm(<span class="pl-v">list</span><span class="pl-k">=</span>ls()) <span class="pl-c">#clean the variables</span>
+library(<span class="pl-smi">ggplot2</span>); library(<span class="pl-smi">caret</span>); library(<span class="pl-smi">randomForest</span>) <span class="pl-c">#packages used</span>
+
+<span class="pl-c">#Use multiple cores of the processor</span>
+<span class="pl-c"># library(doParallel) #install.packages("doParallel")</span>
+<span class="pl-c"># registerDoParallel(cores=2)</span></pre></div>
+
+<h3>
+<a id="2-step-loading-the-data" class="anchor" href="#2-step-loading-the-data" aria-hidden="true"><span class="octicon octicon-link"></span></a>2. Step: Loading the data</h3>
+
+<p>We load the data and replace all "","NA", "#DIV/0!" values with the NA value from R.</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-smi">rawdata</span> <span class="pl-k">&lt;-</span> read.csv(<span class="pl-s"><span class="pl-pds">"</span>pml-training.csv<span class="pl-pds">"</span></span>, <span class="pl-v">na.strings</span> <span class="pl-k">=</span> c(<span class="pl-s"><span class="pl-pds">"</span><span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>NA<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>#DIV/0!<span class="pl-pds">"</span></span>) )</pre></div>
+
+<h3>
+<a id="3-step-clean-the-data-and-select-covariant" class="anchor" href="#3-step-clean-the-data-and-select-covariant" aria-hidden="true"><span class="octicon octicon-link"></span></a>3. Step: Clean the data and select covariant</h3>
+
+<p>We found out by reading the data description that the first seven columns are descriptions.
+So we remove them from our raw data data. -(1:7).</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-smi">data</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">rawdata</span>[,<span class="pl-k">-</span>(<span class="pl-c1">1</span><span class="pl-k">:</span><span class="pl-c1">7</span>)]</pre></div>
+
+<p>We remove now the covariants that have more than 10% of missing data.</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-c"># set the outcome aside</span>
+<span class="pl-smi">classe</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">data</span><span class="pl-k">$</span><span class="pl-smi">classe</span>
+    <span class="pl-c"># remove the classe from the data</span>
+        <span class="pl-c">#find the column with the covariants (predictors)</span>
+        <span class="pl-smi">aa</span><span class="pl-k">&lt;-</span> colnames(<span class="pl-smi">data</span>)<span class="pl-k">==</span><span class="pl-s"><span class="pl-pds">"</span>classe<span class="pl-pds">"</span></span>
+
+    <span class="pl-smi">data</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">data</span>[,<span class="pl-k">!</span><span class="pl-smi">aa</span>]
+<span class="pl-c"># define a function for the removal</span>
+<span class="pl-en">remove_cov</span> <span class="pl-k">&lt;-</span> <span class="pl-k">function</span>(<span class="pl-smi">x</span>,<span class="pl-smi">y</span>) { 
+    <span class="pl-smi">shortdata</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">x</span>[ , colSums( is.na(<span class="pl-smi">x</span>) ) <span class="pl-k">&lt;</span><span class="pl-k">=</span> <span class="pl-smi">y</span><span class="pl-k">/</span><span class="pl-c1">100</span><span class="pl-k">*</span>nrow(<span class="pl-smi">x</span>) ]
+    <span class="pl-smi">bb</span> <span class="pl-k">&lt;-</span> c(<span class="pl-smi">i</span>, ncol(<span class="pl-smi">shortdata</span>))
+    <span class="pl-k">return</span>(<span class="pl-smi">bb</span>)
+    }
+<span class="pl-smi">bbb</span><span class="pl-k">&lt;-</span> <span class="pl-k">data.frame</span>(<span class="pl-v">percent</span><span class="pl-k">=</span>integer(),<span class="pl-v">covariant</span><span class="pl-k">=</span>integer()) <span class="pl-c">#initiate</span>
+<span class="pl-c"># i is the percentage of NA's per column</span>
+<span class="pl-k">for</span>(<span class="pl-smi">i</span> <span class="pl-k">in</span> <span class="pl-c1">0</span><span class="pl-k">:</span><span class="pl-c1">100</span>) {
+    <span class="pl-smi">bbb</span>[<span class="pl-smi">i</span><span class="pl-k">+</span><span class="pl-c1">1</span>,<span class="pl-c1">1</span>]<span class="pl-k">&lt;-</span>remove_cov(<span class="pl-smi">data</span>,<span class="pl-smi">i</span>)[<span class="pl-c1">1</span>]
+    <span class="pl-smi">bbb</span>[<span class="pl-smi">i</span><span class="pl-k">+</span><span class="pl-c1">1</span>,<span class="pl-c1">2</span>]<span class="pl-k">&lt;-</span>remove_cov(<span class="pl-smi">data</span>,<span class="pl-smi">i</span>)[<span class="pl-c1">2</span>]
+    }
+<span class="pl-c">#the plot tells us what percentage cut-off will reduce covariants</span>
+qplot(<span class="pl-smi">percent</span>,<span class="pl-smi">covariant</span>,<span class="pl-v">data</span><span class="pl-k">=</span><span class="pl-smi">bbb</span>)
+
+<span class="pl-c"># create our reduced data</span>
+<span class="pl-smi">shortdata</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">data</span>[ , colSums( is.na(<span class="pl-smi">data</span>) ) <span class="pl-k">&lt;</span><span class="pl-k">=</span> <span class="pl-c1">10</span><span class="pl-k">/</span><span class="pl-c1">100</span><span class="pl-k">*</span>nrow(<span class="pl-smi">data</span>) ]
+
+<span class="pl-c">#reduce by PCA</span>
+<span class="pl-smi">cc</span><span class="pl-k">&lt;-</span><span class="pl-k">data.frame</span>(<span class="pl-v">percent</span><span class="pl-k">=</span>integer(),<span class="pl-v">components</span><span class="pl-k">=</span>integer())
+<span class="pl-k">for</span>( <span class="pl-smi">i</span> <span class="pl-k">in</span> <span class="pl-c1">1</span><span class="pl-k">:</span><span class="pl-c1">99</span>) {
+    <span class="pl-smi">pcaFit</span><span class="pl-k">&lt;-</span>preProcess(<span class="pl-smi">shortdata</span>, <span class="pl-v">method</span><span class="pl-k">=</span>c(<span class="pl-s"><span class="pl-pds">"</span>center<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>scale<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>pca<span class="pl-pds">"</span></span>),<span class="pl-v">thresh</span><span class="pl-k">=</span><span class="pl-smi">i</span><span class="pl-k">/</span><span class="pl-c1">100</span>)
+    <span class="pl-smi">cc</span>[<span class="pl-smi">i</span>,<span class="pl-c1">1</span>]<span class="pl-k">&lt;-</span> <span class="pl-smi">i</span>
+    <span class="pl-smi">cc</span>[<span class="pl-smi">i</span>,<span class="pl-c1">2</span>]<span class="pl-k">&lt;-</span><span class="pl-smi">pcaFit</span><span class="pl-k">$</span><span class="pl-smi">numComp</span>
+    }
+qplot(<span class="pl-smi">percent</span>,<span class="pl-smi">components</span>,<span class="pl-v">data</span><span class="pl-k">=</span><span class="pl-smi">cc</span>)
+
+<span class="pl-smi">pcaFit95</span><span class="pl-k">&lt;-</span>preProcess(<span class="pl-smi">shortdata</span>, <span class="pl-v">method</span><span class="pl-k">=</span>c(<span class="pl-s"><span class="pl-pds">"</span>center<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>scale<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>pca<span class="pl-pds">"</span></span>),<span class="pl-v">thresh</span><span class="pl-k">=</span><span class="pl-c1">0.95</span>)
+<span class="pl-smi">pcadata95</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">pcaFit95</span>,<span class="pl-smi">shortdata</span>)
+<span class="pl-smi">pcaFit75</span><span class="pl-k">&lt;-</span>preProcess(<span class="pl-smi">shortdata</span>, <span class="pl-v">method</span><span class="pl-k">=</span>c(<span class="pl-s"><span class="pl-pds">"</span>center<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>scale<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span>pca<span class="pl-pds">"</span></span>),<span class="pl-v">thresh</span><span class="pl-k">=</span><span class="pl-c1">0.75</span>)
+<span class="pl-smi">pcadata75</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">pcaFit75</span>,<span class="pl-smi">shortdata</span>)
+
+<span class="pl-c"># add the outcome</span>
+<span class="pl-smi">shortdata</span><span class="pl-k">$</span><span class="pl-smi">classe</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">classe</span>
+<span class="pl-smi">pcadata95</span><span class="pl-k">$</span><span class="pl-smi">classe</span><span class="pl-k">&lt;-</span><span class="pl-smi">classe</span>
+<span class="pl-smi">pcadata75</span><span class="pl-k">$</span><span class="pl-smi">classe</span><span class="pl-k">&lt;-</span><span class="pl-smi">classe</span></pre></div>
+
+<p>We have reduced the number of covariants from <strong><code>r ncol(data)</code></strong> to <strong><code>r ncol(shortdata)-1</code></strong>.</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-smi">yaa</span> <span class="pl-k">&lt;-</span> levels(<span class="pl-smi">shortdata</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)</pre></div>
+
+<p>The outcome has the following levels <strong><code>r yaa</code></strong>.</p>
+
+<h3>
+<a id="4-setting-up-our-training-and-test-datasets" class="anchor" href="#4-setting-up-our-training-and-test-datasets" aria-hidden="true"><span class="octicon octicon-link"></span></a>4. Setting up our training and test datasets</h3>
+
+<p>We split the data into a training set (70%) and a test set (30%).</p>
+
+<div class="highlight highlight-r"><pre>set.seed(<span class="pl-c1">400</span>)
+<span class="pl-smi">inTrain</span> <span class="pl-k">&lt;-</span>createDataPartition(<span class="pl-v">y</span><span class="pl-k">=</span><span class="pl-smi">shortdata</span><span class="pl-k">$</span><span class="pl-smi">classe</span>, <span class="pl-v">p</span><span class="pl-k">=</span><span class="pl-c1">0.7</span>, <span class="pl-v">list</span><span class="pl-k">=</span><span class="pl-c1">FALSE</span>)
+<span class="pl-smi">training</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">shortdata</span>[<span class="pl-smi">inTrain</span>,]; 
+<span class="pl-smi">testing</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">shortdata</span>[<span class="pl-k">-</span><span class="pl-smi">inTrain</span>,]
+
+<span class="pl-smi">inTrain95</span> <span class="pl-k">&lt;-</span>createDataPartition(<span class="pl-v">y</span><span class="pl-k">=</span><span class="pl-smi">pcadata95</span><span class="pl-k">$</span><span class="pl-smi">classe</span>, <span class="pl-v">p</span><span class="pl-k">=</span><span class="pl-c1">0.3</span>, <span class="pl-v">list</span><span class="pl-k">=</span><span class="pl-c1">FALSE</span>)
+<span class="pl-smi">training95</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">pcadata95</span>[<span class="pl-smi">inTrain95</span>,]; 
+<span class="pl-smi">testing95</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">pcadata95</span>[<span class="pl-k">-</span><span class="pl-smi">inTrain95</span>,]
+
+<span class="pl-smi">inTrain75</span> <span class="pl-k">&lt;-</span>createDataPartition(<span class="pl-v">y</span><span class="pl-k">=</span><span class="pl-smi">pcadata75</span><span class="pl-k">$</span><span class="pl-smi">classe</span>, <span class="pl-v">p</span><span class="pl-k">=</span><span class="pl-c1">0.3</span>, <span class="pl-v">list</span><span class="pl-k">=</span><span class="pl-c1">FALSE</span>)
+<span class="pl-smi">training75</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">pcadata75</span>[<span class="pl-smi">inTrain75</span>,]; 
+<span class="pl-smi">testing75</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">pcadata75</span>[<span class="pl-k">-</span><span class="pl-smi">inTrain75</span>,]
+
+
+</pre></div>
+
+<p>We have now a training data set with <strong><code>r dim(training)</code></strong> rows.</p>
+
+<h3>
+<a id="5-step-calculate-the-model" class="anchor" href="#5-step-calculate-the-model" aria-hidden="true"><span class="octicon octicon-link"></span></a>5. Step: Calculate the model</h3>
+
+<h4>
+<a id="51-using-k-nearest-neighbors-knn" class="anchor" href="#51-using-k-nearest-neighbors-knn" aria-hidden="true"><span class="octicon octicon-link"></span></a>5.1. Using k-nearest neighbors (knn)</h4>
+
+<p>knn-methods is a very simple method. The main parameter is the number of neighbors (=k). </p>
+
+<div class="highlight highlight-r"><pre>set.seed(<span class="pl-c1">400</span>)
+<span class="pl-smi">ctrl</span> <span class="pl-k">&lt;-</span> trainControl(<span class="pl-v">method</span><span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>repeatedcv<span class="pl-pds">"</span></span>,<span class="pl-v">repeats</span> <span class="pl-k">=</span> <span class="pl-c1">3</span>) <span class="pl-c">#,classProbs=TRUE,summaryFunction = twoClassSummary)</span>
+<span class="pl-c"># knnFit &lt;- train(classe ~ ., data = training, method = "knn", trControl = ctrl, preProcess = c("center","scale"), tuneLength = 20)</span>
+
+<span class="pl-c"># saveRDS(knnFit, file="knnFit7030.rds") #save the result</span>
+<span class="pl-smi">knnFit</span> <span class="pl-k">&lt;-</span> readRDS(<span class="pl-s"><span class="pl-pds">"</span>knnFit7030.rds<span class="pl-pds">"</span></span>)
+</pre></div>
+
+<p>The following plots tell us more. (training data)</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-smi">knnplot</span><span class="pl-k">&lt;-</span> plot(<span class="pl-smi">knnFit</span>)</pre></div>
+
+<p>The best accuracy is achieved with k=5. We note that the in-sample accuracy is above 95%.</p>
+
+<h4>
+<a id="52-using-random-forest-method" class="anchor" href="#52-using-random-forest-method" aria-hidden="true"><span class="octicon octicon-link"></span></a>5.2 Using random forest method</h4>
+
+<p>We chosen  random tree as the algorith because it is recognized as a good performer.</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-c"># rfFit &lt;- train( classe ~ ., method="rf", prox=TRUE, data=training)</span>
+<span class="pl-c"># saveRDS(rfFit, file="rfFit7030.rds")</span>
+<span class="pl-smi">rfFit</span> <span class="pl-k">&lt;-</span>readRDS(<span class="pl-s"><span class="pl-pds">"</span>rfFit7030.rds<span class="pl-pds">"</span></span>)
+<span class="pl-smi">tt</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">rfFit</span><span class="pl-k">$</span><span class="pl-smi">finalModel</span></pre></div>
+
+<p>The resulting model</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-smi">tt</span></pre></div>
+
+<p>OOB looks great with 1.75%!!</p>
+
+<p>We also use next our pca-reduced dataset with less covariants with random tree.
+One model with 75% variance explained by pca and the other with 95% variance explained.</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-c"># it is very timeconsuming to do the train, so I show code and load from file the result</span>
+<span class="pl-c"># rfFit95 &lt;- train( classe ~ ., method="rf", prox=TRUE, data=training95)</span>
+<span class="pl-c"># saveRDS(rfFit95, file="rfFit953070.rds")</span>
+<span class="pl-smi">rfFit95</span> <span class="pl-k">&lt;-</span>readRDS(<span class="pl-s"><span class="pl-pds">"</span>rfFit953070.rds<span class="pl-pds">"</span></span>)
+<span class="pl-smi">tt95</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">rfFit95</span><span class="pl-k">$</span><span class="pl-smi">finalModel</span>
+
+<span class="pl-c"># rfFit75 &lt;- train( classe ~ ., method="rf", prox=TRUE, data=training75)</span>
+<span class="pl-c"># saveRDS(rfFit75, file="rfFit753070.rds")</span>
+<span class="pl-smi">rfFit75</span> <span class="pl-k">&lt;-</span> readRDS(<span class="pl-s"><span class="pl-pds">"</span>rfFit753070.rds<span class="pl-pds">"</span></span>)
+<span class="pl-smi">tt75</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">rfFit75</span><span class="pl-k">$</span><span class="pl-smi">finalModel</span></pre></div>
+
+<p>The resulting model for 75% variance explained pca:</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-smi">tt75</span></pre></div>
+
+<p>The resulting model for 75% variance explained pca:</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-smi">tt95</span></pre></div>
+
+<p>OOB estimate of error rate is for both model low but fare away from the non adjusted.</p>
+
+<h3>
+<a id="5-testing-the-model-with-the-test-data" class="anchor" href="#5-testing-the-model-with-the-test-data" aria-hidden="true"><span class="octicon octicon-link"></span></a>5. Testing the model with the test data</h3>
+
+<p>We use now our testing data to see how good our model works.</p>
+
+<p>Evaluation for pca-reduced models</p>
+
+<div class="highlight highlight-r"><pre>
+<span class="pl-c">#our model with PCA at 95% explained, training 30% and 70% test</span>
+<span class="pl-smi">testaa</span><span class="pl-k">&lt;-</span> colnames(<span class="pl-smi">testing</span>)<span class="pl-k">==</span><span class="pl-s"><span class="pl-pds">"</span>classe<span class="pl-pds">"</span></span>
+<span class="pl-smi">test95</span><span class="pl-k">&lt;-</span><span class="pl-smi">testing</span>[,<span class="pl-k">!</span>(<span class="pl-smi">testaa</span>)]
+<span class="pl-smi">testpcadata95</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">pcaFit95</span>,<span class="pl-smi">test95</span>)
+<span class="pl-smi">testpcadata95</span><span class="pl-k">$</span><span class="pl-smi">classe</span> <span class="pl-k">&lt;-</span><span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>
+<span class="pl-smi">pred95</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">rfFit95</span>,<span class="pl-smi">testpcadata95</span>)
+<span class="pl-smi">test95conf</span> <span class="pl-k">&lt;-</span> confusionMatrix(<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>,<span class="pl-smi">pred95</span>)
+<span class="pl-smi">accrfpca95</span><span class="pl-k">&lt;-</span><span class="pl-smi">test95conf</span><span class="pl-k">$</span><span class="pl-smi">overall</span>[<span class="pl-c1">1</span>]
+
+<span class="pl-c">#our model with PCA at 75% explained, training 20% and 80% test</span>
+<span class="pl-smi">test75</span><span class="pl-k">&lt;-</span><span class="pl-smi">testing</span>[,<span class="pl-k">!</span>(<span class="pl-smi">testaa</span>)]
+<span class="pl-smi">testpcadata75</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">pcaFit75</span>,<span class="pl-smi">test75</span>)
+<span class="pl-smi">testpcadata75</span><span class="pl-k">$</span><span class="pl-smi">classe</span> <span class="pl-k">&lt;-</span><span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>
+<span class="pl-smi">pred75</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">rfFit75</span>,<span class="pl-smi">testpcadata75</span>)
+<span class="pl-smi">test75conf</span> <span class="pl-k">&lt;-</span> confusionMatrix(<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>,<span class="pl-smi">pred75</span>)
+<span class="pl-smi">accrfpca75</span><span class="pl-k">&lt;-</span><span class="pl-smi">test75conf</span><span class="pl-k">$</span><span class="pl-smi">overall</span>[<span class="pl-c1">1</span>]</pre></div>
+
+<p>Accuracy is for the 75% variance explained pca: <strong><code>r accrfpca75</code></strong>
+Accuracy is for the 95% variance explained pca: <strong><code>r accrfpca95</code></strong></p>
+
+<p>Now we test with the full random forest model:</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-smi">test100</span><span class="pl-k">&lt;-</span><span class="pl-smi">testing</span>[,<span class="pl-k">!</span>(<span class="pl-smi">testaa</span>)]
+
+<span class="pl-smi">predrf</span><span class="pl-k">&lt;-</span>predict(<span class="pl-smi">rfFit</span>,<span class="pl-smi">test100</span>)
+<span class="pl-smi">testrfconf</span> <span class="pl-k">&lt;-</span> confusionMatrix(<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>,<span class="pl-smi">predrf</span>)
+<span class="pl-smi">accrf</span><span class="pl-k">&lt;-</span><span class="pl-smi">testrfconf</span><span class="pl-k">$</span><span class="pl-smi">overall</span>[<span class="pl-c1">1</span>]</pre></div>
+
+<p>Accuracy is for the full random forest model predication: <strong><code>r accrf</code></strong></p>
+
+<p>Now we test with the k-nearest neighbors:</p>
+
+<div class="highlight highlight-r"><pre><span class="pl-c"># using the test data</span>
+<span class="pl-c"># predknn&lt;- predict(knnFit,testing)</span>
+<span class="pl-c"># saveRDS(predknn, file="knnFitprdict.rds")</span>
+<span class="pl-smi">predknn</span> <span class="pl-k">&lt;-</span> readRDS(<span class="pl-s"><span class="pl-pds">"</span>knnFitprdict.rds<span class="pl-pds">"</span></span>)
+<span class="pl-smi">ttknn</span><span class="pl-k">&lt;-</span>confusionMatrix(<span class="pl-smi">testing</span><span class="pl-k">$</span><span class="pl-smi">classe</span>, <span class="pl-smi">predknn</span>)
+<span class="pl-smi">accknn</span><span class="pl-k">&lt;-</span><span class="pl-smi">ttknn</span><span class="pl-k">$</span><span class="pl-smi">overall</span>[<span class="pl-c1">1</span>]</pre></div>
+
+<p>Accuracy is for the knn predication: <strong><code>r accknn</code></strong></p>
+
+<p>Summary
+We recommend to use random forest model with accuracy of <strong><code>r accrf</code></strong></p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/werderhg/Project">Project</a> is maintained by <a href="https://github.com/werderhg">werderhg</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
